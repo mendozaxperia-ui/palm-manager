@@ -2,6 +2,8 @@
 
 A small PyQt6 application for installing Palm OS PRC and PDB files over Bluetooth or USB. Developed and tested with a Palm Tungsten T3 on Manjaro Linux.
 
+> **AI-assisted development:** This project was designed, developed and tested by its human maintainer in collaboration with OpenAI ChatGPT, which generated and edited substantial portions of the source code and documentation. The maintainer directed the work and verified transfers on real hardware. The project does not claim to be hand-written or independently audited. See [AUTHORS.md](AUTHORS.md).
+
 ## Features
 
 - Install one or several PRC/PDB files in a single HotSync session.
@@ -63,11 +65,17 @@ This JSON Lines file can be copied or backed up. It may contain local filenames 
 - Single PRC over USB: `RescoExplorer-5-03-3.prc`, 552 KiB, successful and visible on the Palm.
 - File queue cleared after successful Bluetooth and USB transfers.
 
-Automatic Bluetooth transfer and installation history were subsequently verified on real hardware. Automatic USB selection detected the device, but the first real USB test failed when Linux renumbered the ports after repeated disconnects. Dynamic port detection and stalled-process cleanup have since passed simulated tests; repeat the real USB test before marking this feature verified.
+Automatic Bluetooth transfer and installation history were subsequently verified on real hardware. After fixing dynamic USB port detection and timeout handling, **automatic USB selection and a successful PRC installation were also verified** on the Tungsten T3 (Filez.prc, 183 KiB). The first automatic USB tests failed and were used to improve the implementation. Testing on other Palm models or Linux distributions is still needed.
+
+## Maintainer, contributors and AI disclosure
+
+Maintained by [@mendozaxperia-ui](https://github.com/mendozaxperia-ui). Substantial code and documentation were produced with OpenAI ChatGPT under the maintainer's direction, then tested with a real Palm Tungsten T3. See [AUTHORS.md](AUTHORS.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+
+If you have a different Palm OS device or use another Linux distribution, **testing reports are especially welcome**. Please do not upload proprietary Palm applications or ROMs.
 
 ## License
 
-Palm Manager source code is offered under the **GNU General Public License, version 3** (GPL-3.0-only). See [LICENSE](LICENSE).
+Palm Manager source code is distributed under the **GNU General Public License, version 3** (GPL-3.0-only), to the extent the contributors hold applicable rights. See [LICENSE](LICENSE) and [DEPENDENCIES.md](DEPENDENCIES.md).
 
 Dependencies are separate projects with their own licenses; the archive does not include binaries or source copies of PyQt6, Qt, BlueZ, dbus-python, PyGObject, socat or pilot-link.
 
