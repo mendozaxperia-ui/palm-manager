@@ -155,6 +155,23 @@ class PalmManager(QMainWindow):
         layout.addWidget(self.status)
         actions = QHBoxLayout()
         self.install = QPushButton("Install to Palm")
+        # Primary action: use the active Qt palette for light/dark theme support.
+        self.install.setMinimumHeight(42)
+        self.install.setStyleSheet("""
+            QPushButton {
+                background-color: palette(highlight);
+                color: palette(highlighted-text);
+                border: 1px solid palette(highlight);
+                border-radius: 6px;
+                font-weight: bold;
+                padding: 8px 18px;
+            }
+            QPushButton:disabled {
+                background-color: palette(button);
+                color: palette(mid);
+                border-color: palette(mid);
+            }
+        """)
         self.install.clicked.connect(self.start_install)
         self.cancel = QPushButton("Cancel")
         self.cancel.clicked.connect(self.cancel_install)
