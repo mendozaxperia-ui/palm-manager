@@ -22,6 +22,8 @@ For Bluetooth, pair the Palm to your Linux computer and configure a Bluetooth Ho
 
 See [INSTALL.md](INSTALL.md) for platform-specific setup and [TESTING.md](TESTING.md) for a short hardware test procedure.
 
+See [COMPATIBILITY.md](COMPATIBILITY.md) for verified hardware results and devices awaiting community testing.
+
 ## Start
 
 ```bash
