@@ -22,6 +22,14 @@ sudo pacman -S python-pyqt6 python-dbus python-gobject bluez socat
 
 Package names differ on other Linux distributions; install the equivalents using your package manager.
 
+On **Ubuntu / Debian**, the GUI dependencies are commonly available as:
+
+```bash
+sudo apt install python3-pyqt6 python3-dbus python3-gi bluez socat
+```
+
+Check whether `pilot-xfer` is already installed (`command -v pilot-xfer`). Availability of a `pilot-link` package varies by Ubuntu/Debian release and repository; install a compatible package or build from trusted upstream sources if necessary. `pilot-xfer` is essential, and Palm Manager cannot install files without it.
+
 ## Run without installation
 
 Extract the archive and open a terminal in the `palm-manager` folder:
@@ -38,15 +46,29 @@ python3 palm_manager.py
 
 ## USB permissions
 
-The device typically appears as two ports such as `/dev/ttyUSB0` and `/dev/ttyUSB1` **only when HotSync begins**. The T3's data port is the second. The user's account must have permission to access the serial port; on Manjaro this commonly means membership in the `uucp` group, and on some other distributions `dialout`.
+The Tungsten T3 typically appears as two ports such as `/dev/ttyUSB0` and `/dev/ttyUSB1` **only when HotSync begins**. The T3's data port is the second; this is not guaranteed for other models. The user's account must have permission to access the serial port; on Manjaro this commonly means membership in the `uucp` group, and on some other distributions `dialout`.
 
 Do not run the whole graphical program as root. Prefer setting permissions and signing out/in for new group membership to take effect.
+
+### Manual USB port for other Palm models
+
+Choose **USB cable (manual port)** in Palm Manager. Enter the **data port** (for example, `/dev/ttyUSB1`), click Install, and start USB HotSync. Palm Manager waits up to two minutes for that port.
+
+To discover possible ports, connect the Palm, start USB HotSync, and while it is trying to connect run in another terminal:
+
+```bash
+ls -l /dev/ttyUSB*
+```
+
+Ports may vanish again when HotSync stops. To inspect kernel messages if needed, use `journalctl -k` or `dmesg` (some distributions restrict reading the kernel log). Not all Palm models expose `ttyUSB` ports or use the same interface numbering. If no suitable port exists, **report that instead of guessing**; the manual mode currently accepts only `/dev/ttyUSBN`, and the application may need future changes for other device types. Avoid choosing a port that belongs to an unrelated USB device.
 
 ## Bluetooth
 
 Pair the Palm to your Linux Bluetooth adapter in BlueZ. On the Palm, configure Bluetooth HotSync to connect to your Linux computer. The program registers an SPP service on RFCOMM channel 3 and uses `socat` to bridge it to `pilot-xfer`.
 
-If automatic mode causes trouble, select Bluetooth or USB cable explicitly. Other devices may need adaptation.
+If automatic mode causes trouble, select Bluetooth or USB cable explicitly. Other devices may need adaptation. For other Palm models, try **USB cable (manual port)** only if Linux creates a suitable `/dev/ttyUSBN` data port.
+
+See [TESTING.md](TESTING.md) for a focused first test and a report template.
 
 ## Data and backups
 

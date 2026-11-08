@@ -3,6 +3,7 @@
 """Palm Manager: simple PRC/PDB installer for USB or Bluetooth HotSync."""
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -11,7 +12,7 @@ from pathlib import Path
 from PyQt6.QtCore import QProcess, QSettings, QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QListWidget,
-    QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QVBoxLayout,
+    QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QLineEdit, QVBoxLayout,
     QWidget,
 )
 
@@ -131,10 +132,20 @@ class PalmManager(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(QLabel("Connection:"))
         self.mode = QComboBox()
-        self.mode.addItems(["Automatic (Bluetooth or USB)", "Bluetooth", "USB cable"])
+        self.mode.addItems(["Automatic (Bluetooth or USB)", "Bluetooth", "USB cable", "USB cable (manual port)"])
         row.addWidget(self.mode)
         row.addStretch()
         layout.addLayout(row)
+
+        self.manual_port_row = QWidget()
+        port_layout = QHBoxLayout(self.manual_port_row)
+        port_layout.setContentsMargins(0, 0, 0, 0)
+        port_layout.addWidget(QLabel("USB data port:"))
+        self.usb_port = QLineEdit()
+        self.usb_port.setPlaceholderText("/dev/ttyUSB1")
+        self.usb_port.setToolTip("Enter the data port shown by Linux after starting USB HotSync (for example /dev/ttyUSB1).")
+        port_layout.addWidget(self.usb_port)
+        layout.addWidget(self.manual_port_row)
 
         layout.addWidget(QLabel("Files to install (drag and drop supported):"))
         self.files = FileList()
@@ -195,7 +206,9 @@ class PalmManager(QMainWindow):
             "Automatic: click Install, then start HotSync on your Palm (Bluetooth or USB).",
             "Bluetooth: click Install, then start Bluetooth HotSync on your Palm.",
             "USB: connect the cable, click Install, then start USB HotSync on your Palm.",
+            "Manual USB: enter the Palm data port, click Install, then start USB HotSync.",
         ]
+        self.manual_port_row.setVisible(self.mode.currentIndex() == 3)
         self.status.setText(hints[self.mode.currentIndex()])
 
     def pick_files(self):
@@ -222,6 +235,7 @@ class PalmManager(QMainWindow):
         self.install.setEnabled(not value)
         self.cancel.setEnabled(value)
         self.mode.setEnabled(not value)
+        self.usb_port.setEnabled(not value)
 
     def start_install(self):
         if self.running:
@@ -233,6 +247,15 @@ class PalmManager(QMainWindow):
         if not all(Path(p).is_file() for p in paths):
             QMessageBox.warning(self, "Missing file", "One or more selected files no longer exist.")
             return
+        if self.mode.currentIndex() == 3:
+            requested_port = self.usb_port.text().strip()
+            if not re.fullmatch(r"/dev/ttyUSB[0-9]+", requested_port):
+                QMessageBox.warning(
+                    self, "Invalid USB port",
+                    "Enter a Linux USB serial port such as /dev/ttyUSB1. "
+                    "Check which port your Palm creates when USB HotSync starts."
+                )
+                return
         answer = QMessageBox.question(
             self, "Confirm installation",
             f"Install {len(paths)} file(s) via "
@@ -256,14 +279,20 @@ class PalmManager(QMainWindow):
             self.start_usb_wait(paths, automatic=True)
         elif self.mode.currentIndex() == 1:
             self.start_bridge()
-        else:
+        elif self.mode.currentIndex() == 2:
             self.start_usb_wait(paths)
+        else:
+            self.start_usb_wait(paths, manual_port=requested_port)
 
-    def start_usb_wait(self, paths, automatic=False):
+    def start_usb_wait(self, paths, automatic=False, manual_port=None):
         self.usb_paths = paths
+        self.requested_usb_port = manual_port
         self.usb_wait_ticks = 0
         if automatic:
             self.say("Automatic mode: waiting for Bluetooth or USB HotSync.")
+        elif manual_port:
+            self.status.setText(f"USB: waiting for {manual_port}…")
+            self.say(f"Manual USB port {manual_port}: start USB HotSync on your Palm.")
         else:
             self.status.setText("USB: waiting for HotSync on your Palm…")
             self.say("Start USB HotSync on your Palm. Detecting the Palm USB port…")
@@ -291,9 +320,12 @@ class PalmManager(QMainWindow):
             self.usb_timer.stop()
             return
 
-        port = detect_palm_usb_port()
+        # Manual mode deliberately bypasses Tungsten T3-specific USB ID detection.
+        port = (self.requested_usb_port
+                if self.mode.currentIndex() == 3 and Path(self.requested_usb_port).exists()
+                else detect_palm_usb_port() if self.mode.currentIndex() != 3 else None)
         if port:
-            self.say(f"Palm USB port detected: {port}. Selecting USB transfer.")
+            self.say(f"USB port selected: {port}. Starting transfer.")
             self.active_usb_port = port
             if automatic:
                 old = self.transfer
@@ -314,7 +346,10 @@ class PalmManager(QMainWindow):
                 if automatic:
                     self.say("USB detection stopped after ten minutes; Bluetooth may still be available.")
                 else:
-                    self.say("Palm USB port did not appear within two minutes.")
+                    if self.mode.currentIndex() == 3:
+                        self.say(f"Manual USB port {self.requested_usb_port} did not appear within two minutes.")
+                    else:
+                        self.say("Palm USB port did not appear within two minutes.")
                     self.finish(False)
 
     def start_bridge(self):

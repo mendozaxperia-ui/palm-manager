@@ -7,7 +7,9 @@ A small PyQt6 application for installing Palm OS PRC and PDB files over Bluetoot
 ## Features
 
 - Install one or several PRC/PDB files in a single HotSync session.
-- **Automatic (default):** prepare Bluetooth, detect the current Palm USB serial port, then use whichever connection is actually initiated. After Bluetooth connects, USB detection stops. Manual Bluetooth and USB modes remain available.
+- **Automatic (default):** prepare Bluetooth, detect the current Tungsten T3 USB serial port, then use whichever connection is actually initiated. After Bluetooth connects, USB detection stops.
+- **USB cable (manual port):** enter an explicit Linux `/dev/ttyUSBN` data port for testing other Palm models, without the T3-specific USB ID check. This does not guarantee compatibility with that Palm model.
+- Dedicated Bluetooth and auto-detected USB modes also remain available.
 - Clear the file queue after a successful installation; retain it after failure.
 - Show pilot-link's text progress and store installation history locally.
 - Installation only: no PIM/calendar/contact synchronization.
@@ -18,7 +20,7 @@ Linux with Python 3, PyQt6, python-dbus, PyGObject/GLib, BlueZ, `socat` and `pil
 
 For Bluetooth, pair the Palm to your Linux computer and configure a Bluetooth HotSync connection on the Palm. The app registers an SPP server through BlueZ on RFCOMM channel 3.
 
-See [INSTALL.md](INSTALL.md) for platform-specific setup.
+See [INSTALL.md](INSTALL.md) for platform-specific setup and [TESTING.md](TESTING.md) for a short hardware test procedure.
 
 ## Start
 
@@ -79,4 +81,4 @@ Palm Manager source code is distributed under the **GNU General Public License, 
 
 Dependencies are separate projects with their own licenses; the archive does not include binaries or source copies of PyQt6, Qt, BlueZ, dbus-python, PyGObject, socat or pilot-link.
 
-This is a **development preview (v0.1.0)**, tested primarily on Manjaro Linux with a Palm Tungsten T3. The USB detection logic is T3-specific. It is not yet a generally tested release for all Palm models and distributions.
+This is an **early testing preview**, based on the original v0.1.0 release and extended with manual USB port selection for community hardware tests, primarily tested on Manjaro Linux with a Palm Tungsten T3. The USB detection logic is T3-specific. It is not yet a generally tested release for all Palm models and distributions.
