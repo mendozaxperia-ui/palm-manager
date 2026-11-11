@@ -22,6 +22,7 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  cp COPYING COPYING.LIB "$APPDIR/usr/share/palm-manager/licenses/"
 )
 test -x "$APPDIR/usr/bin/pilot-xfer"
+export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$APPDIR/usr/lib64:${LD_LIBRARY_PATH:-}"
 cp /usr/bin/socat "$APPDIR/usr/bin/socat"
 cp /usr/share/doc/socat/copyright "$APPDIR/usr/share/palm-manager/licenses/socat-Debian-copyright"
 cp LICENSE "$APPDIR/usr/share/palm-manager/licenses/Palm-Manager-GPLv3"
