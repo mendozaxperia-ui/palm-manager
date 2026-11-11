@@ -28,7 +28,7 @@ jobs:
             libusb-dev libpng-dev libreadline-dev libpopt-dev \
             docbook-xsl xsltproc bison flex socat \
             libglib2.0-dev libgirepository1.0-dev \
-            libxcb-xinerama0 libxkbcommon-x11-0
+            libxcb-xinerama0 libxkbcommon-x11-0 libegl1 libgl1 libopengl0
           python3 -m pip install --user 'pyinstaller>=6,<7' 'PyQt6>=6.5,<6.9'
       - name: Build and smoke-test AppImage
         run: bash packaging/build-appimage.sh
