@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Palm Manager
+Comment=Install Palm OS PRC/PDB files via USB or Bluetooth
+Exec=AppRun
+Icon=palm-manager
+Terminal=false
+Categories=Utility;
