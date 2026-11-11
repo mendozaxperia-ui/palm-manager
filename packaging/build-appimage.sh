@@ -46,7 +46,9 @@ for executable in "$APPDIR/usr/bin/pilot-xfer" "$APPDIR/usr/bin/socat"; do
     soname="$(basename "$lib")"
     [[ "$soname" =~ ^(libc\.so|ld-linux|libpthread\.so|libdl\.so|libm\.so|librt\.so|libresolv\.so|libnss_) ]] && continue
     mkdir -p "$APPDIR/usr/lib"
-    cp -L "$lib" "$APPDIR/usr/lib/$soname"
+    if [[ "$(realpath "$lib")" != "$(realpath -m "$APPDIR/usr/lib/$soname")" ]]; then
+      cp -L "$lib" "$APPDIR/usr/lib/$soname"
+    fi
   done < <(ldd "$executable" | awk '/=> \// {print $3}')
 done
 "$APPDIR/usr/bin/pilot-xfer" --version
