@@ -7,7 +7,7 @@ APPDIR="$ROOT/build/AppDir"
 rm -rf "$ROOT/build" "$ROOT/dist"
 mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/palm-manager/licenses" "$APPDIR/usr/share/palm-manager/source"
 export PATH="$HOME/.local/bin:$PATH"
-python3 -m PyInstaller --noconfirm --clean --onedir --windowed --name PalmManager --collect-all PyQt6 palm_manager.py
+python3 -m PyInstaller --noconfirm --clean --onedir --windowed --name PalmManager palm_manager.py
 python3 -m PyInstaller --noconfirm --clean --onedir --console --name PalmBridge --hidden-import=dbus.mainloop.glib --collect-all gi --collect-all dbus bridge.py
 cp -a dist/PalmManager dist/PalmBridge "$APPDIR/usr/bin/"
 git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-link"
@@ -18,6 +18,8 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  ./configure --prefix=/usr --enable-conduits
  make -j2
  make DESTDIR="$APPDIR" install
+ # Palm Manager only needs pilot-xfer. Remove the other pilot-link command-line tools.
+ find "$APPDIR/usr/bin" -maxdepth 1 -type f ! -name pilot-xfer -delete
  git archive --format=tar.gz -o "$APPDIR/usr/share/palm-manager/source/pilot-link-source.tar.gz" HEAD
  cp COPYING COPYING.LIB "$APPDIR/usr/share/palm-manager/licenses/"
 )
@@ -64,4 +66,8 @@ ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APP
 QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
 cat "$ROOT/build/appimage-smoke.log"
 if [[ "$image_exit" != 124 ]]; then echo "AppImage smoke test failed with exit $image_exit" >&2; exit 1; fi
+echo "=== AppDir size report ==="
+du -sh "$APPDIR" "$APPDIR/usr/bin/PalmManager" "$APPDIR/usr/bin/PalmBridge" "$APPDIR/usr/lib" "$APPDIR/usr/share" || true
+echo "=== Built AppImage size ==="
+ls -lh "$ROOT/dist/"*.AppImage
 sha256sum "$ROOT/dist/"*.AppImage | tee "$ROOT/dist/SHA256SUMS"
