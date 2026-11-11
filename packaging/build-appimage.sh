@@ -29,7 +29,8 @@ cp LICENSE "$APPDIR/usr/share/palm-manager/licenses/Palm-Manager-GPLv3"
 cp README.md INSTALL.md DEPENDENCIES.md TESTING.md "$APPDIR/usr/share/palm-manager/"
 cp packaging/palm-manager.svg "$APPDIR/palm-manager.svg"
 cp packaging/palm-manager.desktop "$APPDIR/palm-manager.desktop"
-ln -s palm-manager.svg "$APPDIR/.DirIcon"
+rsvg-convert -w 256 -h 256 "$APPDIR/palm-manager.svg" -o "$APPDIR/palm-manager.png"
+ln -s palm-manager.png "$APPDIR/.DirIcon"
 cat > "$APPDIR/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -e
@@ -59,4 +60,8 @@ curl -fL --retry 3 -o "$ROOT/build/appimagetool.AppImage" https://github.com/App
 chmod +x "$ROOT/build/appimagetool.AppImage"
 mkdir -p "$ROOT/dist"
 ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage"
+# Test the actual AppImage entrypoint, not only the unpacked AppDir.
+QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
+cat "$ROOT/build/appimage-smoke.log"
+if [[ "$image_exit" != 124 ]]; then echo "AppImage smoke test failed with exit $image_exit" >&2; exit 1; fi
 sha256sum "$ROOT/dist/"*.AppImage | tee "$ROOT/dist/SHA256SUMS"
