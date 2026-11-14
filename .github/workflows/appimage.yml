@@ -7,6 +7,7 @@ on:
       - "palm_manager.py"
       - "bridge.py"
       - "packaging/**"
+      - "tests/**"
       - ".github/workflows/appimage.yml"
   workflow_dispatch:
 
@@ -30,6 +31,8 @@ jobs:
             libglib2.0-dev libgirepository1.0-dev \
             libxcb-xinerama0 libxkbcommon-x11-0 libegl1 libgl1 libopengl0 librsvg2-bin
           python3 -m pip install --user 'pyinstaller>=6,<7' 'PyQt6>=6.5,<6.9'
+      - name: Run direct USB mode tests
+        run: QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -v
       - name: Build and smoke-test AppImage
         run: bash packaging/build-appimage.sh
       - name: Upload AppImage and SHA256

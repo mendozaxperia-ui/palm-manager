@@ -132,7 +132,10 @@ class PalmManager(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(QLabel("Connection:"))
         self.mode = QComboBox()
-        self.mode.addItems(["Automatic (Bluetooth or USB)", "Bluetooth", "USB cable", "USB cable (manual port)"])
+        self.mode.addItems([
+            "Automatic (Bluetooth or USB)", "Bluetooth", "USB cable",
+            "USB cable (manual port)", "USB direct (libusb, experimental)"
+        ])
         row.addWidget(self.mode)
         row.addStretch()
         layout.addLayout(row)
@@ -207,6 +210,7 @@ class PalmManager(QMainWindow):
             "Bluetooth: click Install, then start Bluetooth HotSync on your Palm.",
             "USB: connect the cable, click Install, then start USB HotSync on your Palm.",
             "Manual USB: enter the Palm data port, click Install, then start USB HotSync.",
+            "Direct USB: click Install first, then start USB HotSync. No /dev/ttyUSB port needed.",
         ]
         self.manual_port_row.setVisible(self.mode.currentIndex() == 3)
         self.status.setText(hints[self.mode.currentIndex()])
@@ -281,8 +285,14 @@ class PalmManager(QMainWindow):
             self.start_bridge()
         elif self.mode.currentIndex() == 2:
             self.start_usb_wait(paths)
-        else:
+        elif self.mode.currentIndex() == 3:
             self.start_usb_wait(paths, manual_port=requested_port)
+        else:
+            # libusb uses raw USB, without waiting for any ttyUSB node.
+            self.say("Experimental direct USB mode (libusb) selected.")
+            self.say("Waiting on usb:. Start USB HotSync on your Palm now.")
+            self.say("If this times out, check USB passthrough, permissions and visor.")
+            self.start_transfer("usb:", paths)
 
     def start_usb_wait(self, paths, automatic=False, manual_port=None):
         self.usb_paths = paths
@@ -389,7 +399,7 @@ class PalmManager(QMainWindow):
             self.finish(False)
 
     def start_transfer(self, port, paths):
-        self.active_transport = "USB" if port.startswith("/dev/ttyUSB") else "Bluetooth"
+        self.active_transport = "USB" if port == "usb:" or port.startswith("/dev/ttyUSB") else "Bluetooth"
         self.transfer = QProcess(self)
         self.transfer.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         self.transfer.readyReadStandardOutput.connect(self.on_transfer_output)
@@ -397,7 +407,7 @@ class PalmManager(QMainWindow):
         self.transfer.errorOccurred.connect(self.on_transfer_error)
         timeout = "600" if self.mode.currentIndex() == 0 else "120"
         self.transfer.start("pilot-xfer", ["-p", port, "-t", timeout, "--install", *paths])
-        self.say(f"pilot-xfer started for {self.active_transport}.")
+        self.say(f"pilot-xfer started for {self.active_transport} (port: {port}).")
         self.status.setText("Waiting for Palm HotSync…")
         self.say("Start HotSync on your Palm if you haven't already.")
 

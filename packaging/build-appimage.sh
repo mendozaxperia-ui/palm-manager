@@ -24,6 +24,11 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  cp COPYING COPYING.LIB "$APPDIR/usr/share/palm-manager/licenses/"
 )
 test -x "$APPDIR/usr/bin/pilot-xfer"
+# The direct USB mode requires legacy libusb-0.1 from pilot-link.
+if ! ldd "$APPDIR/usr/lib/libpisock.so.9" | grep -q 'libusb-0.1'; then
+  echo "pilot-link was not built with libusb support" >&2
+  exit 1
+fi
 export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$APPDIR/usr/lib64:${LD_LIBRARY_PATH:-}"
 cp /usr/bin/socat "$APPDIR/usr/bin/socat"
 cp /usr/share/doc/socat/copyright "$APPDIR/usr/share/palm-manager/licenses/socat-Debian-copyright"
@@ -54,6 +59,7 @@ for executable in "$APPDIR/usr/bin/pilot-xfer" "$APPDIR/usr/bin/socat"; do
     fi
   done < <(ldd "$executable" | awk '/=> \// {print $3}')
 done
+test -f "$APPDIR/usr/lib/libusb-0.1.so.4"
 "$APPDIR/usr/bin/pilot-xfer" --version
 QT_QPA_PLATFORM=offscreen timeout 8 "$APPDIR/AppRun" > "$ROOT/build/gui-smoke.log" 2>&1 && gui_exit=0 || gui_exit=$?
 cat "$ROOT/build/gui-smoke.log"
