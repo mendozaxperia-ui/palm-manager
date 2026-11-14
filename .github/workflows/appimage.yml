@@ -2,7 +2,7 @@ name: Experimental AppImage
 
 on:
   push:
-    branches: [experimental/appimage]
+    branches: [experimental/appimage, experimental/libusb-appimage]
     paths:
       - "palm_manager.py"
       - "bridge.py"
