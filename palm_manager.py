@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 BASE = Path(__file__).resolve().parent
-BRIDGE = BASE / "bridge.py"
+BRIDGE = (Path(sys.executable).resolve().parent.parent / "PalmBridge" / "PalmBridge" if getattr(sys, "frozen", False) else BASE / "bridge.py")
 PORT_BT = "/tmp/palm-hotsync"
 PALM_USB_VENDOR = "0830"
 PALM_USB_PRODUCT = "0060"
@@ -359,7 +359,7 @@ class PalmManager(QMainWindow):
         self.bridge.readyReadStandardOutput.connect(self.on_bridge_output)
         self.bridge.errorOccurred.connect(self.on_bridge_error)
         self.bridge.finished.connect(self.on_bridge_finished)
-        self.bridge.start(sys.executable, ["-u", str(BRIDGE)])
+        self.bridge.start(str(BRIDGE), [] ) if getattr(sys, "frozen", False) else self.bridge.start(sys.executable, ["-u", str(BRIDGE)])
         self.status.setText("Starting Bluetooth server…")
 
     def on_bridge_output(self):
