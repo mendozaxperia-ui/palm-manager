@@ -15,7 +15,7 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  cd "$ROOT/build/pilot-link"
  git rev-parse HEAD | tee "$APPDIR/usr/share/palm-manager/source/pilot-link-commit.txt"
  ./autogen.sh
- ./configure --prefix=/usr --enable-conduits
+ ./configure --prefix=/usr --enable-conduits --enable-libusb
  make -j2
  make DESTDIR="$APPDIR" install
  # Palm Manager only needs pilot-xfer. Remove the other pilot-link command-line tools.
