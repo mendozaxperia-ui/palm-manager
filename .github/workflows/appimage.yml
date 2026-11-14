@@ -38,7 +38,7 @@ jobs:
       - name: Upload AppImage and SHA256
         uses: actions/upload-artifact@v4
         with:
-          name: Palm-Manager-AppImage-experimental-x86_64
+          name: Palm-Manager-libusb-test-x86_64
           path: |
             dist/*.AppImage
             dist/SHA256SUMS

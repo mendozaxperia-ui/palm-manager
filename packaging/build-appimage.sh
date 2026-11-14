@@ -67,9 +67,9 @@ if [[ "$gui_exit" != 124 ]]; then echo "GUI smoke test failed with exit $gui_exi
 curl -fL --retry 3 -o "$ROOT/build/appimagetool.AppImage" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
 chmod +x "$ROOT/build/appimagetool.AppImage"
 mkdir -p "$ROOT/dist"
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-libusb-test-x86_64.AppImage"
 # Test the actual AppImage entrypoint, not only the unpacked AppDir.
-QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
+QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-libusb-test-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
 cat "$ROOT/build/appimage-smoke.log"
 if [[ "$image_exit" != 124 ]]; then echo "AppImage smoke test failed with exit $image_exit" >&2; exit 1; fi
 echo "=== AppDir size report ==="
