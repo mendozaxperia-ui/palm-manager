@@ -162,6 +162,7 @@ class PalmManager(QMainWindow):
         self.transfer = None
         self.running = False
         self.bridge_buffer = ""
+        self.bridge_failure_reported = False
         self.usb_timer = QTimer(self)
         self.usb_timer.setInterval(200)
         self.usb_timer.timeout.connect(self.check_usb_port)
@@ -458,6 +459,7 @@ class PalmManager(QMainWindow):
 
     def start_bridge(self):
         self.bridge_buffer = ""
+        self.bridge_failure_reported = False
         self.bridge = QProcess(self)
         self.bridge.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
         self.bridge.readyReadStandardOutput.connect(self.on_bridge_output)
@@ -482,15 +484,34 @@ class PalmManager(QMainWindow):
             elif "BlueZ error:" in line or "Traceback" in line:
                 self.say(line)
 
+    def handle_bridge_failure(self, detail):
+        if not self.running or self.active_transport == "USB" or self.bridge_failure_reported:
+            return
+        self.bridge_failure_reported = True
+        self.say(detail)
+        # An unavailable Bluetooth service must not prevent automatic USB
+        # detection. In particular, headless VMs often have no BlueZ adapter.
+        if self.mode.currentIndex() == 0 and self.usb_timer.isActive() and not self.bt_connected:
+            if self.active_transport == "Bluetooth" and self.transfer is not None:
+                # pilot-xfer may already be waiting on the now-defunct BT PTY.
+                old = self.transfer
+                old.finished.disconnect(self.on_transfer_finished)
+                old.errorOccurred.disconnect(self.on_transfer_error)
+                old.readyReadStandardOutput.disconnect(self.on_transfer_output)
+                self.transfer = None
+                stop_process(old)
+                self.active_transport = None
+            self.say("Bluetooth unavailable. Continuing to wait for USB HotSync.")
+            self.status.setText("USB: waiting for HotSync on your Palm…")
+            return
+        self.finish(False)
+
     def on_bridge_error(self, error):
-        if self.running and self.active_transport != "USB":
-            self.say("Bluetooth server error: " + self.bridge.errorString())
-            self.finish(False)
+        if self.bridge is not None:
+            self.handle_bridge_failure("Bluetooth server error: " + self.bridge.errorString())
 
     def on_bridge_finished(self, code, status):
-        if self.running and self.active_transport != "USB":
-            self.say(f"Bluetooth server stopped unexpectedly (exit code {code}).")
-            self.finish(False)
+        self.handle_bridge_failure(f"Bluetooth server stopped unexpectedly (exit code {code}).")
 
     def start_transfer(self, port, paths):
         self.active_transport = "USB" if port == "usb:" or port.startswith("/dev/ttyUSB") else "Bluetooth"
