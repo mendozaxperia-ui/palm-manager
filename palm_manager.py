@@ -22,6 +22,7 @@ PORT_BT = "/tmp/palm-hotsync"
 PALM_USB_VENDOR = "0830"
 PALM_USB_PRODUCT = "0060"
 PORT_USB = "/dev/ttyUSB1"  # Legacy fallback/reference; not selected in automatic mode.
+USB_PERMISSION_GRACE_SECONDS = 3.0  # udev may set group/mode after ttyUSB appears.
 
 
 def inspect_palm_usb_port(sys_root=Path("/sys/class/tty"), dev_root=Path("/dev")):
@@ -173,6 +174,8 @@ class PalmManager(QMainWindow):
         self.active_usb_port = None
         self.usb_disconnected_at = None
         self.usb_detection_issue = None
+        self.usb_permission_port = None
+        self.usb_permission_since = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -358,6 +361,8 @@ class PalmManager(QMainWindow):
         self.requested_usb_port = manual_port
         self.usb_wait_ticks = 0
         self.usb_detection_issue = None
+        self.usb_permission_port = None
+        self.usb_permission_since = None
         if automatic:
             self.say("Automatic mode: waiting for Bluetooth or USB HotSync.")
         elif manual_port:
@@ -401,9 +406,21 @@ class PalmManager(QMainWindow):
         if port:
             issue = usb_port_access_issue(port)
             if issue:
-                self.say(issue)
-                self.finish(False)
+                # A newly enumerated ttyUSB node can briefly have root-only
+                # permissions before udev applies its final group and mode.
+                # Wait without requiring admin rights or blocking Qt's event loop.
+                now = time.monotonic()
+                if self.usb_permission_port != port:
+                    self.usb_permission_port = port
+                    self.usb_permission_since = now
+                    self.say(f"USB port {port} found; waiting for device permissions…")
+                    self.status.setText("USB: waiting for device permissions…")
+                elif now - self.usb_permission_since >= USB_PERMISSION_GRACE_SECONDS:
+                    self.say(issue)
+                    self.finish(False)
                 return
+            self.usb_permission_port = None
+            self.usb_permission_since = None
             self.say(f"USB port selected: {port}. Starting transfer.")
             self.active_usb_port = port
             if automatic:
@@ -417,6 +434,10 @@ class PalmManager(QMainWindow):
                 stop_process(self.bridge)
             self.start_transfer(port, self.usb_paths)
         else:
+            # A vanished device must not inherit the previous port's
+            # permission grace period if USB reconnects.
+            self.usb_permission_port = None
+            self.usb_permission_since = None
             self.usb_wait_ticks += 1
             # 200 ms ticks: automatic mode allows ten minutes to start
             # HotSync; manual USB retains its shorter two-minute timeout.
