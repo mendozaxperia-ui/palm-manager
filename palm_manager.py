@@ -24,33 +24,88 @@ PALM_USB_PRODUCT = "0060"
 PORT_USB = "/dev/ttyUSB1"  # Legacy fallback/reference; not selected in automatic mode.
 
 
-def detect_palm_usb_port(sys_root=Path("/sys/class/tty")):
-    """Find the Palm USB serial *data* port, even if Linux renumbers it.
+def inspect_palm_usb_port(sys_root=Path("/sys/class/tty"), dev_root=Path("/dev")):
+    """Find a Palm USB serial data port, or explain why selection is unsafe.
 
-    The Tungsten T3 exposes two ttyUSB interfaces; pilot-link uses the second.
-    Traverse sysfs to distinguish Palm ports from unrelated USB serial devices.
+    Prefer the kernel's visor driver, which handles several Palm-compatible
+    manufacturers. Also accept Palm Inc.'s USB vendor ID when two ports exist.
+    A matching USB serial port is not necessarily the *data* port: use the
+    per-device port_number (1 on the known Tungsten T3), not global ttyUSB IDs.
     """
-    groups = {}
-    for entry in sys_root.glob("ttyUSB*"):
-        device = entry / "device"
-        if not device.exists():
+    devices = {}
+    for entry in sorted(sys_root.glob("ttyUSB*")):
+        if not entry.name.removeprefix("ttyUSB").isdigit():
             continue
-        parent = device.resolve()
-        while parent != parent.parent:
-            vendor, product = parent / "idVendor", parent / "idProduct"
-            if vendor.is_file() and product.is_file():
-                try:
-                    if (vendor.read_text().strip().lower() == PALM_USB_VENDOR
-                            and product.read_text().strip().lower() == PALM_USB_PRODUCT):
-                        number = int(entry.name.removeprefix("ttyUSB"))
-                        groups.setdefault(parent, []).append((number, str(Path("/dev") / entry.name)))
-                except (OSError, ValueError):
-                    pass
+        try:
+            parent = (entry / "device").resolve(strict=True)
+        except (OSError, RuntimeError):
+            continue
+        usb_device = None
+        visor_driver = False
+        probe = parent
+        while probe != probe.parent:
+            try:
+                driver = probe / "driver"
+                if driver.is_symlink() and driver.resolve().name == "visor":
+                    visor_driver = True
+                vendor_file, product_file = probe / "idVendor", probe / "idProduct"
+                if vendor_file.is_file() and product_file.is_file():
+                    vendor = vendor_file.read_text().strip().lower()
+                    product = product_file.read_text().strip().lower()
+                    usb_device = (probe, vendor, product)
+                    break
+            except OSError:
                 break
-            parent = parent.parent
-    # A fully enumerated Palm presents a pair of serial interfaces.
-    pairs = [sorted(ports) for ports in groups.values() if len(ports) >= 2]
-    return max(pairs, key=lambda ports: ports[-1][0])[-1][1] if pairs else None
+            probe = probe.parent
+        if usb_device is None:
+            continue
+        usb_path, vendor, _ = usb_device
+        # Match USB serial ports driven by visor, or Palm Inc. hardware.
+        if not visor_driver and vendor != PALM_USB_VENDOR:
+            continue
+        number_file = parent / "port_number"
+        try:
+            port_number = int(number_file.read_text().strip()) if number_file.is_file() else None
+        except (OSError, ValueError):
+            port_number = None
+        devices.setdefault(usb_path, []).append(
+            (str(dev_root / entry.name), port_number, visor_driver))
+
+    if not devices:
+        return None, "No Palm USB serial port was detected."
+    if len(devices) > 1:
+        return None, "More than one Palm USB device was found. Select a port manually."
+
+    ports = next(iter(devices.values()))
+    # Only trust a single port belonging to the visor driver. Other Palm
+    # vendor devices with one port may expose a non-HotSync interface.
+    if len(ports) == 1:
+        if ports[0][2]:
+            return ports[0][0], None
+        return None, "The USB device has no identifiable Palm data port."
+    data_ports = [port for port, number, _ in ports if number == 1]
+    if len(data_ports) == 1:
+        return data_ports[0], None
+    if len(ports) == 2 and all(number is None for _, number, _ in ports):
+        # Older kernel layouts may omit port_number; the T3 data port is
+        # the higher ttyUSB within its *own* USB device, never globally.
+        return max((port for port, _, _ in ports),
+                   key=lambda path: int(Path(path).name.removeprefix("ttyUSB"))), None
+    return None, "Could not identify the Palm data port. Select it manually."
+
+
+def detect_palm_usb_port(sys_root=Path("/sys/class/tty")):
+    """Compatibility helper returning the safe automatic port, if any."""
+    return inspect_palm_usb_port(sys_root)[0]
+
+
+def usb_port_access_issue(port):
+    """Do not request privileges; diagnose missing access instead."""
+    if not os.access(port, os.R_OK | os.W_OK):
+        return (f"No permission to access {port}. Your Linux user needs "
+                "read/write access to this USB serial device. Check the "
+                "device's group and udev permissions; do not run Palm Manager as root.")
+    return None
 
 
 def stop_process(proc):
@@ -117,6 +172,7 @@ class PalmManager(QMainWindow):
         self.settings = QSettings("PalmManager", "PalmManager")
         self.active_usb_port = None
         self.usb_disconnected_at = None
+        self.usb_detection_issue = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -291,13 +347,17 @@ class PalmManager(QMainWindow):
             # libusb uses raw USB, without waiting for any ttyUSB node.
             self.say("Experimental direct USB mode (libusb) selected.")
             self.say("Waiting on usb:. Start USB HotSync on your Palm now.")
-            self.say("If this times out, check USB passthrough, permissions and visor.")
+            self.say("Direct USB requires access to the raw USB device. "
+                     "If it fails, the visor kernel driver or USB permissions "
+                     "may prevent libusb access. Palm Manager will not modify "
+                     "your system settings.")
             self.start_transfer("usb:", paths)
 
     def start_usb_wait(self, paths, automatic=False, manual_port=None):
         self.usb_paths = paths
         self.requested_usb_port = manual_port
         self.usb_wait_ticks = 0
+        self.usb_detection_issue = None
         if automatic:
             self.say("Automatic mode: waiting for Bluetooth or USB HotSync.")
         elif manual_port:
@@ -330,11 +390,20 @@ class PalmManager(QMainWindow):
             self.usb_timer.stop()
             return
 
-        # Manual mode deliberately bypasses Tungsten T3-specific USB ID detection.
-        port = (self.requested_usb_port
-                if self.mode.currentIndex() == 3 and Path(self.requested_usb_port).exists()
-                else detect_palm_usb_port() if self.mode.currentIndex() != 3 else None)
+        # Manual mode bypasses device detection. Automatic mode selects only
+        # a confidently identified Palm serial data port, never an unrelated
+        # USB serial device.
+        if self.mode.currentIndex() == 3:
+            port = (self.requested_usb_port if Path(self.requested_usb_port).exists()
+                    else None)
+        else:
+            port, self.usb_detection_issue = inspect_palm_usb_port()
         if port:
+            issue = usb_port_access_issue(port)
+            if issue:
+                self.say(issue)
+                self.finish(False)
+                return
             self.say(f"USB port selected: {port}. Starting transfer.")
             self.active_usb_port = port
             if automatic:
@@ -360,6 +429,10 @@ class PalmManager(QMainWindow):
                         self.say(f"Manual USB port {self.requested_usb_port} did not appear within two minutes.")
                     else:
                         self.say("Palm USB port did not appear within two minutes.")
+                        self.say(self.usb_detection_issue or
+                                 "Check the USB cable and start USB HotSync.")
+                        self.say("In a virtual machine, attach the Palm USB device "
+                                 "to the guest while HotSync is active.")
                     self.finish(False)
 
     def start_bridge(self):
@@ -421,7 +494,22 @@ class PalmManager(QMainWindow):
             return
         self.on_transfer_output()
         if self.running:
-            self.finish(code == 0 and status == QProcess.ExitStatus.NormalExit)
+            success = code == 0 and status == QProcess.ExitStatus.NormalExit
+            if not success:
+                if self.active_transport == "USB":
+                    self.say("USB HotSync failed. Verify that the Palm is "
+                             "connected to this computer (or VM), the user "
+                             "has access to its USB port, and no other "
+                             "HotSync program is running.")
+                    if self.mode.currentIndex() == 4:
+                        self.say("Direct libusb may conflict with the visor "
+                                 "driver. Try the regular USB cable mode "
+                                 "before changing system settings.")
+                else:
+                    self.say("Bluetooth HotSync failed. Check pairing, "
+                             "the Bluetooth connection and any other "
+                             "running HotSync applications.")
+            self.finish(success)
 
     def on_transfer_error(self, error):
         if self.running and self.sender() is self.transfer:

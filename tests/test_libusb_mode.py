@@ -29,6 +29,34 @@ class LibusbModeTest(unittest.TestCase):
         win.set_running(False)
         win.close()
 
+    def test_automatic_mode_keeps_usb_wait_and_bluetooth_bridge(self):
+        win = PalmManager()
+        win.files.addItem("/tmp/only_mocks.prc")
+        win.mode.setCurrentIndex(0)
+        with patch("palm_manager.Path.is_file", return_value=True), \
+             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), \
+             patch.object(win, "start_bridge") as bridge, \
+             patch.object(win, "start_usb_wait") as usb:
+            win.start_install()
+            bridge.assert_called_once()
+            usb.assert_called_once_with(["/tmp/only_mocks.prc"], automatic=True)
+        win.set_running(False)
+        win.close()
+
+    def test_bluetooth_only_does_not_launch_usb_detection(self):
+        win = PalmManager()
+        win.files.addItem("/tmp/only_mocks.prc")
+        win.mode.setCurrentIndex(1)
+        with patch("palm_manager.Path.is_file", return_value=True), \
+             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), \
+             patch.object(win, "start_bridge") as bridge, \
+             patch.object(win, "start_usb_wait") as usb:
+            win.start_install()
+            bridge.assert_called_once()
+            usb.assert_not_called()
+        win.set_running(False)
+        win.close()
+
     def test_direct_usb_is_classified_usb(self):
         win = PalmManager()
         with patch("palm_manager.QProcess") as process:
