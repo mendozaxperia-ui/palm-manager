@@ -33,7 +33,7 @@ export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$APPDIR
 cp /usr/bin/socat "$APPDIR/usr/bin/socat"
 cp /usr/share/doc/socat/copyright "$APPDIR/usr/share/palm-manager/licenses/socat-Debian-copyright"
 cp LICENSE "$APPDIR/usr/share/palm-manager/licenses/Palm-Manager-GPLv3"
-cp README.md INSTALL.md DEPENDENCIES.md TESTING.md "$APPDIR/usr/share/palm-manager/"
+cp README.md INSTALL.md DEPENDENCIES.md TESTING.md BETA-TESTING.md "$APPDIR/usr/share/palm-manager/"
 cp packaging/palm-manager.svg "$APPDIR/palm-manager.svg"
 cp packaging/palm-manager.desktop "$APPDIR/palm-manager.desktop"
 rsvg-convert -w 256 -h 256 "$APPDIR/palm-manager.svg" -o "$APPDIR/palm-manager.png"
@@ -67,13 +67,13 @@ if [[ "$gui_exit" != 124 ]]; then echo "GUI smoke test failed with exit $gui_exi
 curl -fL --retry 3 -o "$ROOT/build/appimagetool.AppImage" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
 chmod +x "$ROOT/build/appimagetool.AppImage"
 mkdir -p "$ROOT/dist"
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-libusb-test-x86_64.AppImage"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-beta.1-x86_64.AppImage"
 # Test the actual AppImage entrypoint, not only the unpacked AppDir.
-QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-libusb-test-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
+QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-beta.1-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
 cat "$ROOT/build/appimage-smoke.log"
 if [[ "$image_exit" != 124 ]]; then echo "AppImage smoke test failed with exit $image_exit" >&2; exit 1; fi
 echo "=== AppDir size report ==="
 du -sh "$APPDIR" "$APPDIR/usr/bin/PalmManager" "$APPDIR/usr/bin/PalmBridge" "$APPDIR/usr/lib" "$APPDIR/usr/share" || true
 echo "=== Built AppImage size ==="
 ls -lh "$ROOT/dist/"*.AppImage
-sha256sum "$ROOT/dist/"*.AppImage | tee "$ROOT/dist/SHA256SUMS"
+(cd "$ROOT/dist" && sha256sum ./*.AppImage > SHA256SUMS && cat SHA256SUMS)
