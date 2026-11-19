@@ -4,6 +4,14 @@ A small PyQt6 application for installing Palm OS PRC and PDB files over Bluetoot
 
 > **AI-assisted development:** This project was designed, developed and tested by its human maintainer in collaboration with OpenAI ChatGPT, which generated and edited substantial portions of the source code and documentation. The maintainer directed the work and verified transfers on real hardware. The project does not claim to be hand-written or independently audited. See [AUTHORS.md](AUTHORS.md).
 
+## Experimental AppImage beta (x86_64)
+
+For a ready-to-run Linux AppImage, see the **v0.2.0-beta.1 pre-release** and
+[BETA-TESTING.md](BETA-TESTING.md). It includes the application and transfer
+helpers, but Linux device permissions and Bluetooth availability still matter.
+This preview is tested with a Tungsten T3 on Manjaro and Ubuntu 26.10 in
+VirtualBox; compatibility with other devices/distributions remains unknown.
+
 ## Features
 
 - Install one or several PRC/PDB files in a single HotSync session.

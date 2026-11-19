@@ -15,7 +15,7 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  cd "$ROOT/build/pilot-link"
  git rev-parse HEAD | tee "$APPDIR/usr/share/palm-manager/source/pilot-link-commit.txt"
  ./autogen.sh
- ./configure --prefix=/usr --enable-conduits
+ ./configure --prefix=/usr --enable-conduits --enable-libusb
  make -j2
  make DESTDIR="$APPDIR" install
  # Palm Manager only needs pilot-xfer. Remove the other pilot-link command-line tools.
@@ -24,11 +24,16 @@ git clone --depth 1 https://github.com/desrod/pilot-link.git "$ROOT/build/pilot-
  cp COPYING COPYING.LIB "$APPDIR/usr/share/palm-manager/licenses/"
 )
 test -x "$APPDIR/usr/bin/pilot-xfer"
+# The direct USB mode requires legacy libusb-0.1 from pilot-link.
+if ! ldd "$APPDIR/usr/lib/libpisock.so.9" | grep -q 'libusb-0.1'; then
+  echo "pilot-link was not built with libusb support" >&2
+  exit 1
+fi
 export LD_LIBRARY_PATH="$APPDIR/usr/lib/x86_64-linux-gnu:$APPDIR/usr/lib:$APPDIR/usr/lib64:${LD_LIBRARY_PATH:-}"
 cp /usr/bin/socat "$APPDIR/usr/bin/socat"
 cp /usr/share/doc/socat/copyright "$APPDIR/usr/share/palm-manager/licenses/socat-Debian-copyright"
 cp LICENSE "$APPDIR/usr/share/palm-manager/licenses/Palm-Manager-GPLv3"
-cp README.md INSTALL.md DEPENDENCIES.md TESTING.md "$APPDIR/usr/share/palm-manager/"
+cp README.md INSTALL.md DEPENDENCIES.md TESTING.md BETA-TESTING.md "$APPDIR/usr/share/palm-manager/"
 cp packaging/palm-manager.svg "$APPDIR/palm-manager.svg"
 cp packaging/palm-manager.desktop "$APPDIR/palm-manager.desktop"
 rsvg-convert -w 256 -h 256 "$APPDIR/palm-manager.svg" -o "$APPDIR/palm-manager.png"
@@ -54,6 +59,7 @@ for executable in "$APPDIR/usr/bin/pilot-xfer" "$APPDIR/usr/bin/socat"; do
     fi
   done < <(ldd "$executable" | awk '/=> \// {print $3}')
 done
+test -f "$APPDIR/usr/lib/libusb-0.1.so.4"
 "$APPDIR/usr/bin/pilot-xfer" --version
 QT_QPA_PLATFORM=offscreen timeout 8 "$APPDIR/AppRun" > "$ROOT/build/gui-smoke.log" 2>&1 && gui_exit=0 || gui_exit=$?
 cat "$ROOT/build/gui-smoke.log"
@@ -61,13 +67,13 @@ if [[ "$gui_exit" != 124 ]]; then echo "GUI smoke test failed with exit $gui_exi
 curl -fL --retry 3 -o "$ROOT/build/appimagetool.AppImage" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
 chmod +x "$ROOT/build/appimagetool.AppImage"
 mkdir -p "$ROOT/dist"
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage"
+ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$ROOT/build/appimagetool.AppImage" "$APPDIR" "$ROOT/dist/Palm_Manager-0.2.0-beta.1-x86_64.AppImage"
 # Test the actual AppImage entrypoint, not only the unpacked AppDir.
-QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-test2-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
+QT_QPA_PLATFORM=offscreen APPIMAGE_EXTRACT_AND_RUN=1 timeout 10 "$ROOT/dist/Palm_Manager-0.2.0-beta.1-x86_64.AppImage" > "$ROOT/build/appimage-smoke.log" 2>&1 && image_exit=0 || image_exit=$?
 cat "$ROOT/build/appimage-smoke.log"
 if [[ "$image_exit" != 124 ]]; then echo "AppImage smoke test failed with exit $image_exit" >&2; exit 1; fi
 echo "=== AppDir size report ==="
 du -sh "$APPDIR" "$APPDIR/usr/bin/PalmManager" "$APPDIR/usr/bin/PalmBridge" "$APPDIR/usr/lib" "$APPDIR/usr/share" || true
 echo "=== Built AppImage size ==="
 ls -lh "$ROOT/dist/"*.AppImage
-sha256sum "$ROOT/dist/"*.AppImage | tee "$ROOT/dist/SHA256SUMS"
+(cd "$ROOT/dist" && sha256sum ./*.AppImage > SHA256SUMS && cat SHA256SUMS)
